@@ -1,8 +1,8 @@
 # SonicGraph
 
-SonicGraph is a proof-of-concept real-time media intelligence agent. It calls live MusicBrainz and TMDB data through Model Context Protocol (MCP) tools, then uses an LLM to summarize only the evidence returned by those tools.
+SonicGraph is a proof-of-concept real-time media intelligence agent. It calls live MusicBrainz, TMDB, and Google Books data through Model Context Protocol (MCP) tools, then uses Gemini to summarize only the evidence returned by those tools.
 
-This repository contains a complete POC with MusicBrainz and TMDB as the active data sources. The agent calls MCP tools, then uses LangChain with Google Gemini to answer from the returned evidence.
+This repository contains a complete POC with MusicBrainz, TMDB, and Google Books as active data sources. The agent calls MCP tools, then uses LangChain with Google Gemini to answer from the returned evidence.
 
 ## Architecture
 
@@ -23,10 +23,10 @@ This repository contains a complete POC with MusicBrainz and TMDB as the active 
                     +------+-------+
                            |
                 +------------+------------+
-                v                         v
-         MusicBrainz MCP             TMDB MCP
-                |                         |
-                +------------+------------+
+                v              v              v
+         MusicBrainz MCP    TMDB MCP     Google Books MCP
+                |              |              |
+                +--------------+--------------+
                                v
                        +--------------+
                        | Gemini LLM   |
@@ -98,6 +98,16 @@ Start it with:
 
 The server exposes `search_recordings`, `get_recording`, `search_artists`, and `get_artist`. Recording responses preserve MusicBrainz IDs, artist credits, release dates, and explicit MusicBrainz relationships. MusicBrainz metadata is not silently treated as producer credit unless the source explicitly identifies that relationship.
 
+## Running the Google Books MCP server
+
+Google Books is public and can work without a key for this POC. An optional `GOOGLE_BOOKS_API_KEY` or `GOOGLE_API_KEY` can be provided for quota management.
+
+```powershell
+.\.venv\Scripts\python.exe -m mcp_servers.books_mcp
+```
+
+The server exposes `search_books` and `get_book`. Ask the app questions such as `Tell me about book "The Hobbit"`; only Google Books MCP is called for book queries.
+
 ## Running the Streamlit app
 
 With `.env` populated and the virtual environment active, run:
@@ -110,7 +120,7 @@ The app starts the MusicBrainz and TMDB MCP servers through the Python MCP SDK o
 
 ## Current status
 
-The active POC path uses MusicBrainz and TMDB MCP servers plus LangChain Gemini. Graph, Spotify, and unrelated entity-ingestion code have been removed from the active project. The private `.env` may still contain old ignored variables, but the runtime no longer reads or uses them.
+The active POC path uses MusicBrainz, TMDB, and Google Books MCP servers plus LangChain Gemini. Graph, Spotify, and unrelated entity-ingestion code have been removed from the active project. The private `.env` may still contain old ignored variables, but the runtime no longer reads or uses them.
 
 Remaining phases: none for the POC scope.
 

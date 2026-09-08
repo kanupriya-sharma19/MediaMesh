@@ -12,8 +12,9 @@ class Settings:
 
     tmdb_api_key: str | None = None
     google_api_key: str | None = None
+    google_books_api_key: str | None = None
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
 
 
 def load_settings() -> Settings:
@@ -22,6 +23,7 @@ def load_settings() -> Settings:
     return Settings(
         tmdb_api_key=os.getenv("TMDB_API_KEY"),
         google_api_key=os.getenv("GOOGLE_API_KEY"),
+        google_books_api_key=os.getenv("GOOGLE_BOOKS_API_KEY"),
         gemini_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
     )

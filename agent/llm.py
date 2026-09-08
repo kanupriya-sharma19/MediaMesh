@@ -1,4 +1,4 @@
-"""LLM adapter for grounded answers over MCP results."""
+"""LLM adapter for dynamic MCP tool selection."""
 
 from __future__ import annotations
 
@@ -8,58 +8,97 @@ from typing import Any, Protocol
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 
-TOOL_CATALOG = {
-    "TMDB": {
-        "search_movies": "Find movies by title or keywords.",
-        "get_movie": "Retrieve structured movie metadata and production companies.",
-        "get_movie_credits": "Retrieve cast and crew credits for a movie.",
-    },
-    "MusicBrainz": {
-        "search_recordings": "Find music recordings by title, artist, or MusicBrainz query.",
-        "get_recording": "Retrieve recording metadata, artists, releases, and explicit relations.",
-        "search_artists": "Find music artists.",
-        "get_artist": "Retrieve artist metadata and explicit relations.",
-    },
-}
-
-
 class LLMError(RuntimeError):
-    """Raised when the configured LLM cannot generate an answer."""
+    """Raised when the configured LLM cannot generate an action."""
 
 
 class AnswerModel(Protocol):
-    """Interface used by the agent to synthesize MCP evidence."""
+    """Interface used by the agent to choose MCP actions."""
 
-    def answer(self, query: str, evidence: dict[str, Any]) -> str:
-        """Generate a grounded answer from the supplied evidence."""
+    def next_action(
+        self,
+        query: str,
+        tools: list[dict[str, Any]],
+        evidence: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Decide whether to call a discovered tool or return a final answer."""
         ...
 
 
-class GeminiAnswerModel:
-    """LangChain adapter for Google's Gemini free-tier models."""
+SYSTEM_PROMPT = """
+You are SonicGraph, a dynamic media intelligence agent.
 
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash") -> None:
+Choose only from the tools listed in AVAILABLE TOOLS. The MCP servers are the
+source of truth for tool names, descriptions, and input schemas. Do not invent
+facts, tools, arguments, or relationships.
+
+Use the minimum number of relevant tool calls. Search before detail calls when
+an ID is required, reuse IDs from previous results, and never repeat an
+identical call. If the evidence is sufficient, return a final answer.
+
+Return ONLY valid JSON in one of these forms:
+{"type":"tool_call","server":"...","tool":"...","arguments":{}}
+{"type":"final","answer":"..."}
+"""
+
+
+class GeminiAnswerModel:
+    """Gemini model used as the dynamic MCP decision-maker."""
+
+    def __init__(self, api_key: str, model: str = "gemini-3.5-flash-lite") -> None:
         self.model = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=api_key,
             temperature=0,
         )
 
-    def answer(self, query: str, evidence: dict[str, Any]) -> str:
-        prompt = (
-            "You are SonicGraph, a general media research assistant. Answer the user's query "
-            "using the MCP evidence below. The evidence may include a tool catalog describing "
-            "available capabilities. Explain those capabilities when asked. Never invent facts "
-            "or relationships; if evidence is missing, say what is missing. Mention sources "
-            "for important claims.\n\n"
-            f"User query:\n{query}\n\nMCP evidence:\n"
-            f"{json.dumps(evidence, ensure_ascii=True, indent=2)}"
-        )
+    def next_action(
+        self,
+        query: str,
+        tools: list[dict[str, Any]],
+        evidence: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        prompt = f"""
+{SYSTEM_PROMPT}
+
+AVAILABLE TOOLS:
+{json.dumps(tools, indent=2, default=str)}
+
+USER QUERY:
+{query}
+
+PREVIOUS TOOL RESULTS:
+{json.dumps(evidence, indent=2, default=str)}
+
+Decide the next action.
+"""
         try:
             response = self.model.invoke(prompt)
             content = response.content
         except Exception as exc:
             raise LLMError(f"Gemini request failed: {exc}") from exc
         if not isinstance(content, str) or not content.strip():
-            raise LLMError("LLM returned an empty answer")
-        return content.strip()
+            raise LLMError("Gemini returned an empty response.")
+        try:
+            return _parse_action(content)
+        except json.JSONDecodeError as exc:
+            raise LLMError(f"Gemini returned invalid JSON: {content}") from exc
+
+
+def _parse_action(content: str) -> dict[str, Any]:
+    """Parse Gemini JSON with tolerant Markdown-fence handling."""
+    candidate = content.strip()
+    if candidate.startswith("```") and candidate.endswith("```"):
+        lines = candidate.splitlines()
+        candidate = "\n".join(lines[1:-1]).strip()
+    try:
+        action = json.loads(candidate)
+    except json.JSONDecodeError:
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start < 0 or end <= start:
+            raise
+        action = json.loads(candidate[start : end + 1])
+    if not isinstance(action, dict):
+        raise json.JSONDecodeError("Action must be a JSON object", candidate, 0)
+    return action

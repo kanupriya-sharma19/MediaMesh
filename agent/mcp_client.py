@@ -23,6 +23,7 @@ class StdioMCPClient:
     _SERVER_MODULES: ClassVar[dict[str, str]] = {
         "TMDB": "mcp_servers.tmdb_mcp",
         "MusicBrainz": "mcp_servers.musicbrainz_mcp",
+        "GoogleBooks": "mcp_servers.books_mcp",
     }
 
     def __init__(self, project_root: Path | None = None) -> None:
@@ -39,6 +40,25 @@ class StdioMCPClient:
             raise
         except Exception as exc:
             raise MCPClientError(f"MCP call {server}.{tool} failed") from exc
+
+    def list_tools(self, server: str) -> list[dict[str, Any]]:
+        """Discover one server's tools through MCP ``tools/list``."""
+        module = self._SERVER_MODULES.get(server)
+        if module is None:
+            raise MCPClientError(f"Unknown MCP server: {server}")
+        try:
+            return asyncio.run(self._list_tools(module, server))
+        except MCPClientError:
+            raise
+        except Exception as exc:
+            raise MCPClientError(f"MCP tool discovery failed for {server}") from exc
+
+    def list_all_tools(self) -> list[dict[str, Any]]:
+        """Discover tools from every configured MCP server."""
+        tools: list[dict[str, Any]] = []
+        for server in self._SERVER_MODULES:
+            tools.extend(self.list_tools(server))
+        return tools
 
     async def _call(
         self, module: str, tool: str, arguments: dict[str, Any]
@@ -61,6 +81,29 @@ class StdioMCPClient:
         if getattr(result, "isError", False) or getattr(result, "is_error", False):
             raise MCPClientError(f"MCP tool {tool} returned an error")
         return _decode_result(result)
+
+    async def _list_tools(self, module: str, server: str) -> list[dict[str, Any]]:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", module],
+            env=os.environ.copy(),
+            cwd=str(self.project_root),
+        )
+        async with (
+            stdio_client(parameters) as (read_stream, write_stream),
+            ClientSession(read_stream, write_stream) as session,
+        ):
+            await session.initialize()
+            result = await session.list_tools()
+        return [
+            {
+                "server": server,
+                "name": tool.name,
+                "description": tool.description or "",
+                "input_schema": tool.inputSchema,
+            }
+            for tool in result.tools
+        ]
 
 
 def _decode_result(result: Any) -> dict[str, Any]:

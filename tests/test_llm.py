@@ -1,39 +1,46 @@
 from typing import Any
 
-from agent.llm import GeminiAnswerModel, LLMError
+from agent.llm import GeminiAnswerModel, _parse_action
 
 
-def test_gemini_answer_model_uses_langchain_model(monkeypatch: Any) -> None:
+def test_gemini_next_action_accepts_dynamic_tools(monkeypatch: Any) -> None:
     class FakeChatModel:
         def __init__(self, **kwargs: Any) -> None:
             self.kwargs = kwargs
 
         def invoke(self, prompt: str) -> Any:
-            return type("Response", (), {"content": "Answer from Gemini"})()
+            assert '"name": "search_books"' in prompt
+            return type(
+                "Response",
+                (),
+                {
+                    "content": """```json
+{"type":"tool_call","server":"GoogleBooks","tool":"search_books","arguments":{"query":"Pride and Prejudice"}}
+```"""
+                },
+            )()
 
     monkeypatch.setattr("agent.llm.ChatGoogleGenerativeAI", FakeChatModel)
     model = GeminiAnswerModel("test-key", "gemini-test")
 
-    assert (
-        model.answer("Find connections", {"music": [], "films": []})
-        == "Answer from Gemini"
+    action = model.next_action(
+        "Find Pride and Prejudice",
+        [
+            {
+                "server": "GoogleBooks",
+                "name": "search_books",
+                "description": "Find books",
+                "input_schema": {"type": "object"},
+            }
+        ],
+        [],
     )
-    assert model.model.kwargs["model"] == "gemini-test"
+
+    assert action["tool"] == "search_books"
 
 
-def test_gemini_answer_model_wraps_provider_errors(monkeypatch: Any) -> None:
-    class FailingChatModel:
-        def __init__(self, **kwargs: Any) -> None:
-            pass
-
-        def invoke(self, prompt: str) -> Any:
-            raise RuntimeError("quota exceeded")
-
-    monkeypatch.setattr("agent.llm.ChatGoogleGenerativeAI", FailingChatModel)
-    model = GeminiAnswerModel("test-key")
-    try:
-        model.answer("Find connections", {})
-    except LLMError as exc:
-        assert "quota exceeded" in str(exc)
-    else:
-        raise AssertionError("Expected LLMError")
+def test_parse_action_accepts_fenced_json() -> None:
+    assert _parse_action('```json\n{"type":"final","answer":"Done"}\n```') == {
+        "type": "final",
+        "answer": "Done",
+    }
