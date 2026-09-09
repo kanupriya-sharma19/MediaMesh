@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 @dataclass(frozen=True)
 class Settings:
-    """Runtime settings for SonicGraph integrations."""
+    """Runtime settings for MediaMesh integrations."""
 
     tmdb_api_key: str | None = None
     google_api_key: str | None = None

@@ -1,1 +1,1 @@
-"""Agent orchestration package for SonicGraph."""
+"""Agent orchestration package for MediaMesh."""

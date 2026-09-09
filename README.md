@@ -1,6 +1,6 @@
-# SonicGraph
+# MediaMesh
 
-SonicGraph is a proof-of-concept real-time media intelligence agent. It calls live MusicBrainz, TMDB, and Google Books data through Model Context Protocol (MCP) tools, then uses Gemini to summarize only the evidence returned by those tools.
+MediaMesh is a proof-of-concept real-time media intelligence agent. It calls live MusicBrainz, TMDB, and Google Books data through Model Context Protocol (MCP) tools, then uses Gemini to summarize only the evidence returned by those tools.
 
 This repository contains a complete POC with MusicBrainz, TMDB, and Google Books as active data sources. The agent calls MCP tools, then uses LangChain with Google Gemini to answer from the returned evidence.
 
@@ -88,7 +88,7 @@ The server communicates over MCP stdio and exposes `search_movies`, `get_movie`,
 
 ## Running the MusicBrainz MCP server
 
-MusicBrainz is a public service and does not require an API key. It does require a descriptive `User-Agent`, which the SonicGraph server sends automatically, and public API requests are paced to respect MusicBrainz rate limits.
+MusicBrainz is a public service and does not require an API key. It does require a descriptive `User-Agent`, which the MediaMesh server sends automatically, and public API requests are paced to respect MusicBrainz rate limits.
 
 Start it with:
 

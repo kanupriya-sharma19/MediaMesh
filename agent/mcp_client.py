@@ -1,4 +1,4 @@
-"""Synchronous facade for calling SonicGraph MCP servers over stdio."""
+"""Synchronous facade for calling MediaMesh MCP servers over stdio."""
 
 from __future__ import annotations
 

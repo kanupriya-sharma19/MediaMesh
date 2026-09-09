@@ -1,1 +1,1 @@
-"""MCP server implementations for SonicGraph data sources."""
+"""MCP server implementations for MediaMesh data sources."""

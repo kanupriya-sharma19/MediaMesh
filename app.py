@@ -1,4 +1,4 @@
-"""Streamlit interface for the SonicGraph POC."""
+"""Streamlit interface for the MediaMesh POC."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from agent.llm_agent import AgentError, LLMAgent
 
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-st.set_page_config(page_title="SonicGraph", page_icon="🎧", layout="wide")
+st.set_page_config(page_title="MediaMesh", page_icon="🎧", layout="wide")
 
 
 @st.cache_resource
@@ -27,7 +27,7 @@ def _render_result(result: dict) -> None:
         st.warning(warning)
 
 
-st.title("🎧 SonicGraph")
+st.title("🎧 MediaMesh")
 st.caption("Real-Time Media Intelligence Agent")
 st.write("Ask about verified relationships across music and film.")
 

@@ -1,1 +1,1 @@
-"""Shared SonicGraph utilities."""
+"""Shared MediaMesh utilities."""

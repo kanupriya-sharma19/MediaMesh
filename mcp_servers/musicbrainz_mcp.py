@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 logger = logging.getLogger(__name__)
 
 MUSICBRAINZ_API_URL = "https://musicbrainz.org/ws/2"
-MUSICBRAINZ_USER_AGENT = "SonicGraph/0.1 (https://github.com/sonicgraph-poc)"
+MUSICBRAINZ_USER_AGENT = "MediaMesh/0.1 (https://github.com/MediaMesh-poc)"
 
 
 class MusicBrainzAPIError(RuntimeError):

@@ -85,7 +85,7 @@ def test_search_recordings_returns_normalized_metadata_and_user_agent() -> None:
         "limit": 25,
         "fmt": "json",
     }
-    assert session.get_calls[0]["headers"]["User-Agent"].startswith("SonicGraph/")
+    assert session.get_calls[0]["headers"]["User-Agent"].startswith("MediaMesh/")
 
 
 def test_get_recording_preserves_release_and_explicit_relations() -> None:

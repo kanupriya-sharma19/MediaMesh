@@ -26,7 +26,7 @@ class AnswerModel(Protocol):
 
 
 SYSTEM_PROMPT = """
-You are SonicGraph, a dynamic media intelligence agent.
+You are MediaMesh, a dynamic media intelligence agent.
 
 Choose only from the tools listed in AVAILABLE TOOLS. The MCP servers are the
 source of truth for tool names, descriptions, and input schemas. Do not invent
