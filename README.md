@@ -39,6 +39,8 @@ This repository contains a complete POC with MusicBrainz, TMDB, and Google Books
 
 The LLM is instructed to use only structured MCP evidence and to say when a fact cannot be verified.
 
+Chat history is stored in one process-local `InMemoryStore`, isolated by a UUID kept in Streamlit session state. It survives Streamlit reruns while the application process is running, but is cleared when the application restarts and is not a production database.
+
 ## Prerequisites
 
 - Python 3.11 or newer

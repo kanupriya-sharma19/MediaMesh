@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from agent.llm import AnswerModel, GeminiAnswerModel, LLMError
+from langchain_core.messages import BaseMessage
 from utils.config import load_settings
 
 
@@ -41,7 +43,11 @@ class LLMAgent:
         self.mcp_client = mcp_client
         self.answer_model = answer_model or _model_from_environment()
 
-    def run(self, query: str) -> dict[str, Any]:
+    def run(
+        self,
+        query: str,
+        chat_history: Sequence[BaseMessage] | None = None,
+    ) -> dict[str, Any]:
         """Run the bounded dynamic MCP agent loop."""
         if not query.strip():
             raise AgentError("Please enter a media relationship query.")
@@ -63,9 +69,17 @@ class LLMAgent:
         for step in range(MAX_STEPS):
             logger.info("Agent step %s", step + 1)
             try:
-                action = self.answer_model.next_action(
-                    query=query, tools=tools, evidence=evidence
-                )
+                if chat_history:
+                    action = self.answer_model.next_action(
+                        query=query,
+                        tools=tools,
+                        evidence=evidence,
+                        chat_history=chat_history,
+                    )
+                else:
+                    action = self.answer_model.next_action(
+                        query=query, tools=tools, evidence=evidence
+                    )
             except LLMError as exc:
                 raise AgentError(str(exc)) from exc
 

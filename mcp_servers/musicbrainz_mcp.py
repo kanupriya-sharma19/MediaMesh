@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 MUSICBRAINZ_API_URL = "https://musicbrainz.org/ws/2"
 MUSICBRAINZ_USER_AGENT = "MediaMesh/0.1 (https://github.com/MediaMesh-poc)"
+COVER_ART_ARCHIVE_URL = "https://coverartarchive.org/release"
 
 
 class MusicBrainzAPIError(RuntimeError):
@@ -34,6 +35,7 @@ class MusicBrainzClient:
     def __post_init__(self) -> None:
         self.session = self.session or requests.Session()
         self._last_request_at = 0.0
+        self._cover_art_cache: dict[str, str | None] = {}
 
     def _request(self, path: str, **params: Any) -> dict[str, Any]:
         elapsed = time.monotonic() - self._last_request_at
@@ -69,15 +71,54 @@ class MusicBrainzClient:
             raise MusicBrainzAPIError(
                 "MusicBrainz returned malformed recording results"
             )
-        return [_normalize_recording(recording) for recording in recordings]
+        return [self._enrich_recording(recording) for recording in recordings]
 
     def get_recording(self, recording_id: str) -> dict[str, Any]:
-        return _normalize_recording(
+        return self._enrich_recording(
             self._request(
                 f"/recording/{recording_id}",
                 inc="artists+releases+artist-rels+work-rels+recording-rels",
             )
         )
+
+    def _enrich_recording(self, recording: dict[str, Any]) -> dict[str, Any]:
+        normalized = _normalize_recording(recording)
+        normalized["cover_url"] = self._get_cover_art(normalized["release_id"])
+        return normalized
+
+    def _get_cover_art(self, release_id: Any) -> str | None:
+        if not isinstance(release_id, str) or not release_id.strip():
+            return None
+        if release_id in self._cover_art_cache:
+            return self._cover_art_cache[release_id]
+
+        cover_url = None
+        try:
+            response = self.session.get(
+                f"{COVER_ART_ARCHIVE_URL}/{release_id}",
+                headers={"User-Agent": self.user_agent, "Accept": "application/json"},
+                timeout=10,
+            )
+            if response.status_code < 400:
+                payload = response.json()
+                images = payload.get("images", []) if isinstance(payload, dict) else []
+                for image in images if isinstance(images, list) else []:
+                    if not isinstance(image, dict) or image.get("front") is not True:
+                        continue
+                    thumbnails = image.get("thumbnails", {})
+                    if not isinstance(thumbnails, dict):
+                        thumbnails = {}
+                    cover_url = (
+                        thumbnails.get("500")
+                        or thumbnails.get("250")
+                        or image.get("image")
+                    )
+                    break
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            logger.info("Cover Art Archive lookup failed for %s: %s", release_id, exc)
+
+        self._cover_art_cache[release_id] = cover_url
+        return cover_url
 
     def search_artists(self, query: str) -> list[dict[str, Any]]:
         payload = self._request("/artist", query=query, limit=25)
@@ -128,6 +169,18 @@ def _normalize_recording(recording: dict[str, Any]) -> dict[str, Any]:
                 {"artist_id": artist.get("id"), "artist_name": artist.get("name")}
             )
     releases = recording.get("releases", [])
+    release_id = (
+        next(
+            (
+                release.get("id")
+                for release in releases
+                if isinstance(release, dict) and release.get("id")
+            ),
+            None,
+        )
+        if isinstance(releases, list)
+        else None
+    )
     release_dates = [
         release.get("date-precision") or release.get("date")
         for release in releases
@@ -135,6 +188,7 @@ def _normalize_recording(recording: dict[str, Any]) -> dict[str, Any]:
     ]
     return {
         "recording_id": recording.get("id"),
+        "release_id": release_id,
         "title": recording.get("title"),
         "length_ms": recording.get("length"),
         "artists": artists,

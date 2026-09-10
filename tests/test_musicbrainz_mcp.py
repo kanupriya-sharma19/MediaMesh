@@ -27,6 +27,22 @@ class FakeSession:
 
     def get(self, url: str, **kwargs: Any) -> FakeResponse:
         self.get_calls.append({"url": url, **kwargs})
+        if "/release/release-1" in url:
+            return FakeResponse(
+                200,
+                {
+                    "images": [
+                        {
+                            "front": True,
+                            "image": "https://coverartarchive.org/release/release-1.jpg",
+                            "thumbnails": {
+                                "250": "https://example.test/250.jpg",
+                                "500": "https://example.test/500.jpg",
+                            },
+                        }
+                    ]
+                },
+            )
         if "/recording/recording-1" in url:
             return FakeResponse(
                 200,
@@ -37,7 +53,7 @@ class FakeSession:
                     "artist-credit": [
                         {"artist": {"id": "artist-1", "name": "Artist A"}}
                     ],
-                    "releases": [{"date": "2026-09-07"}],
+                    "releases": [{"id": "release-1", "date": "2026-09-07"}],
                     "relations": [
                         {
                             "type": "composer",
@@ -57,6 +73,7 @@ class FakeSession:
                         "artist-credit": [
                             {"artist": {"id": "artist-1", "name": "Artist A"}}
                         ],
+                        "releases": [{"id": "release-1"}],
                     }
                 ],
                 "artists": [
@@ -70,6 +87,14 @@ class FakeSession:
         )
 
 
+class NoArtworkSession(FakeSession):
+    def get(self, url: str, **kwargs: Any) -> FakeResponse:
+        if "/release/" in url:
+            self.get_calls.append({"url": url, **kwargs})
+            return FakeResponse(404, {})
+        return super().get(url, **kwargs)
+
+
 def test_search_recordings_returns_normalized_metadata_and_user_agent() -> None:
     session = FakeSession()
     client = MusicBrainzClient(session=session, min_request_interval=0)
@@ -80,6 +105,8 @@ def test_search_recordings_returns_normalized_metadata_and_user_agent() -> None:
     assert result[0]["artists"] == [
         {"artist_id": "artist-1", "artist_name": "Artist A"}
     ]
+    assert result[0]["release_id"] == "release-1"
+    assert result[0]["cover_url"] == "https://example.test/500.jpg"
     assert session.get_calls[0]["params"] == {
         "query": 'recording:"Test Song"',
         "limit": 25,
@@ -94,6 +121,8 @@ def test_get_recording_preserves_release_and_explicit_relations() -> None:
     result = client.get_recording("recording-1")
 
     assert result["release_dates"] == ["2026-09-07"]
+    assert result["release_id"] == "release-1"
+    assert result["cover_url"] == "https://example.test/500.jpg"
     assert result["relations"] == [
         {
             "type": "composer",
@@ -102,6 +131,18 @@ def test_get_recording_preserves_release_and_explicit_relations() -> None:
             "target_name": "Composer B",
         }
     ]
+
+
+def test_missing_cover_art_does_not_fail_recording_search_and_is_cached() -> None:
+    session = NoArtworkSession()
+    client = MusicBrainzClient(session=session, min_request_interval=0)
+
+    result = client.search_recordings("test")
+
+    assert result[0]["release_id"] == "release-1"
+    assert result[0]["cover_url"] is None
+    assert client._get_cover_art("release-1") is None
+    assert sum("/release/" in call["url"] for call in session.get_calls) == 1
 
 
 def test_empty_recording_id_is_rejected_by_mcp_tool() -> None:
