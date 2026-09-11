@@ -7,9 +7,9 @@ import logging
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from agent.llm import AnswerModel, GeminiAnswerModel, LLMError
+from backend.agent.llm import AnswerModel, GeminiAnswerModel, LLMError
 from langchain_core.messages import BaseMessage
-from utils.config import load_settings
+from backend.utils.config import load_settings
 
 
 logger = logging.getLogger(__name__)

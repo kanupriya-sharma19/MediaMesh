@@ -1,6 +1,6 @@
 from typing import Any
 
-from agent.llm_agent import LLMAgent
+from backend.agent.llm_agent import LLMAgent
 
 
 class FakeMCPClient:

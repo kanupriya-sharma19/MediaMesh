@@ -21,13 +21,13 @@ class StdioMCPClient:
     """Call local MusicBrainz and TMDB MCP servers through the MCP SDK."""
 
     _SERVER_MODULES: ClassVar[dict[str, str]] = {
-        "TMDB": "mcp_servers.tmdb_mcp",
-        "MusicBrainz": "mcp_servers.musicbrainz_mcp",
-        "GoogleBooks": "mcp_servers.books_mcp",
+        "TMDB": "backend.mcp_servers.tmdb_mcp",
+        "MusicBrainz": "backend.mcp_servers.musicbrainz_mcp",
+        "GoogleBooks": "backend.mcp_servers.books_mcp",
     }
 
     def __init__(self, project_root: Path | None = None) -> None:
-        self.project_root = project_root or Path(__file__).resolve().parents[1]
+        self.project_root = project_root or Path(__file__).resolve().parents[2]
 
     def call(self, server: str, tool: str, **arguments: Any) -> dict[str, Any]:
         """Start one local MCP server, call one tool, and return its JSON object."""

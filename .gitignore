@@ -5,3 +5,7 @@ __pycache__/
 venv/
 .streamlit/
 .pytest_cache/
+data/*.db
+backend/data/*.db
+frontend/node_modules/
+frontend/dist/

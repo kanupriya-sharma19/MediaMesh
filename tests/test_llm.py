@@ -1,6 +1,6 @@
 from typing import Any
 
-from agent.llm import GeminiAnswerModel, _parse_action
+from backend.agent.llm import GeminiAnswerModel, _parse_action
 
 
 def test_gemini_next_action_accepts_dynamic_tools(monkeypatch: Any) -> None:
@@ -20,7 +20,7 @@ def test_gemini_next_action_accepts_dynamic_tools(monkeypatch: Any) -> None:
                 },
             )()
 
-    monkeypatch.setattr("agent.llm.ChatGoogleGenerativeAI", FakeChatModel)
+    monkeypatch.setattr("backend.agent.llm.ChatGoogleGenerativeAI", FakeChatModel)
     model = GeminiAnswerModel("test-key", "gemini-test")
 
     action = model.next_action(

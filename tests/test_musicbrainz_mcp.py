@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_servers.musicbrainz_mcp import (
+from backend.mcp_servers.musicbrainz_mcp import (
     MusicBrainzClient,
     MusicBrainzAPIError,
     get_recording,

@@ -9,7 +9,7 @@ from typing import Any
 import requests
 from mcp.server.fastmcp import FastMCP
 
-from utils.config import load_settings
+from backend.utils.config import load_settings
 
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_servers.tmdb_mcp import TMDBClient, get_movie, get_movie_credits
+from backend.mcp_servers.tmdb_mcp import TMDBClient, get_movie, get_movie_credits
 
 
 class FakeResponse:

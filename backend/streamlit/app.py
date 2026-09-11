@@ -3,21 +3,31 @@
 from __future__ import annotations
 
 import logging
+import sys
 import uuid
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
 
-from agent.llm_agent import AgentError, LLMAgent
-from agent.mcp_client import MCPClientError, StdioMCPClient
-from memory.chat_history import clear_chat_history, get_chat_history, save_chat_history
-from ui.components import (
+from backend.agent.llm_agent import AgentError, LLMAgent
+from backend.agent.mcp_client import MCPClientError, StdioMCPClient
+from backend.memory.chat_history import (
+    clear_chat_history,
+    get_chat_history,
+    save_chat_history,
+)
+from backend.streamlit.components import (
     render_chat_message,
     render_empty_state,
     render_header,
     render_sidebar,
 )
-from ui.theme import inject_custom_css
+from backend.streamlit.theme import inject_custom_css
 
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")

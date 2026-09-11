@@ -1,6 +1,6 @@
 from langchain_core.messages import AIMessage, HumanMessage
 
-from memory.chat_history import (
+from backend.memory.chat_history import (
     clear_chat_history,
     get_chat_history,
     get_store,

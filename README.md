@@ -1,53 +1,75 @@
 # MediaMesh
 
-MediaMesh is a proof-of-concept real-time media intelligence agent. It calls live MusicBrainz, TMDB, and Google Books data through Model Context Protocol (MCP) tools, then uses Gemini to summarize only the evidence returned by those tools.
+MediaMesh is a media intelligence application that combines a React frontend, a FastAPI backend, and an evidence-grounded Python agent. The agent searches live movie, music, and book data through Model Context Protocol (MCP) servers and uses Google Gemini to produce answers based on the returned evidence.
 
-This repository contains a complete POC with MusicBrainz, TMDB, and Google Books as active data sources. The agent calls MCP tools, then uses LangChain with Google Gemini to answer from the returned evidence.
+![MediaMesh interface](image.png)
+
+The interface lets users ask one question across music, movies, and books to discover connections between them.
+
+## Features
+
+- Search TMDB for movies, production companies, cast, and crew.
+- Search MusicBrainz for artists, recordings, releases, and relationships.
+- Search Google Books for books and bibliographic metadata.
+- Generate grounded answers with LangChain and Google Gemini.
+- Store chat history in a process-local in-memory store.
+- Authenticate users through the FastAPI backend with HTTP-only session cookies.
+- Use the React application or the included Streamlit interface.
 
 ## Architecture
 
 ```text
-                    +--------------+
-                    |   Streamlit  |
-                    |      UI      |
-                    +------+-------+
-                           |
-                           v
-                    +--------------+
-                    |    Agent     |
-                    +------+-------+
-                           |
-                           v
-                    +--------------+
-                    |  MCP Client  |
-                    +------+-------+
-                           |
-                +------------+------------+
-                v              v              v
-         MusicBrainz MCP    TMDB MCP     Google Books MCP
-                |              |              |
-                +--------------+--------------+
-                               v
-                       +--------------+
-                       | Gemini LLM   |
-                       +------+-------+
-                               v
-                       +--------------+
-                       | Final Answer |
-                       +--------------+
+React frontend
+       |
+       v
+FastAPI backend
+       |
+       v
+MediaMesh agent and services
+       |
+       +--> Gemini LLM
+       +--> MCP client
+              |
+              +--> TMDB MCP server
+              +--> MusicBrainz MCP server
+              +--> Google Books MCP server
 ```
 
-The LLM is instructed to use only structured MCP evidence and to say when a fact cannot be verified.
+The agent is instructed to use structured MCP evidence and to identify information that cannot be verified from the available sources.
 
-Chat history is stored in one process-local `InMemoryStore`, isolated by a UUID kept in Streamlit session state. It survives Streamlit reruns while the application process is running, but is cleared when the application restarts and is not a production database.
+## Project Structure
 
-## Prerequisites
+```text
+MediaMesh/
+├── backend/
+│   ├── api/            # FastAPI routes
+│   ├── agent/          # Agent, LLM, and MCP client logic
+│   ├── data/           # Local application data
+│   ├── graph/          # Graph-related backend modules
+│   ├── mcp_servers/    # TMDB, MusicBrainz, and Google Books servers
+│   ├── memory/         # Chat history storage
+│   ├── models/         # Backend models
+│   ├── services/       # Authentication and chat services
+│   ├── streamlit/      # Streamlit interface
+│   ├── utils/          # Configuration helpers
+│   ├── main.py         # FastAPI entrypoint
+│   └── requirements.txt
+├── frontend/           # React and Vite application
+├── tests/              # Python test suite
+├── .env.example        # Environment variable template
+└── README.md
+```
+
+## Requirements
 
 - Python 3.11 or newer
-- A TMDB API key for movie data
-- MusicBrainz does not require an API key
+- Node.js and npm
+- A TMDB API key
+- A Google Gemini API key
+- MusicBrainz access does not require an API key
+- Google Books can be used without a key; an optional API key is supported
 
-## Setup
+## Installation
 
 From the repository root on Windows:
 
@@ -55,86 +77,120 @@ From the repository root on Windows:
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r backend/requirements.txt
 Copy-Item .env.example .env
 ```
 
-On macOS or Linux, activate the environment with:
+On macOS or Linux:
 
 ```bash
+python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r backend/requirements.txt
 cp .env.example .env
 ```
 
-Fill in `.env` with credentials. It is ignored by Git and must never be committed.
+Add the required credentials to `.env` before starting the application.
 
-## Credentials
+## Environment Variables
 
-### TMDB
-
-1. Create or sign in to a [TMDB account](https://www.themoviedb.org/).
-2. Request an API key from account settings.
-3. Put the key in `TMDB_API_KEY`.
-
-The movie integration will use structured TMDB metadata and credits. A movie will not be treated as an A24 title based only on free-text descriptions.
-
-## Running the TMDB MCP server
-
-After filling in `TMDB_API_KEY` in `.env`, start the server with:
-
-```powershell
-.\.venv\Scripts\python.exe -m mcp_servers.tmdb_mcp
+```text
+TMDB_API_KEY=your_tmdb_key
+GOOGLE_API_KEY=your_gemini_key
+GEMINI_API_KEY=your_gemini_key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GOOGLE_BOOKS_API_KEY=optional_google_books_key
+MEDIAMESH_DB_PATH=optional_sqlite_path
 ```
 
-The server communicates over MCP stdio and exposes `search_movies`, `get_movie`, and `get_movie_credits`. Movie details preserve structured production companies, and credits preserve cast and crew fields for Gemini's grounded answers.
+`GOOGLE_API_KEY` or `GEMINI_API_KEY` is used for Gemini. `MEDIAMESH_DB_PATH` is optional; by default, authentication data is stored in `backend/data/mm.db`.
 
-## Running the MusicBrainz MCP server
+## Run The Application
 
-MusicBrainz is a public service and does not require an API key. It does require a descriptive `User-Agent`, which the MediaMesh server sends automatically, and public API requests are paced to respect MusicBrainz rate limits.
+### Start the FastAPI backend
 
-Start it with:
-
-```powershell
-.\.venv\Scripts\python.exe -m mcp_servers.musicbrainz_mcp
-```
-
-The server exposes `search_recordings`, `get_recording`, `search_artists`, and `get_artist`. Recording responses preserve MusicBrainz IDs, artist credits, release dates, and explicit MusicBrainz relationships. MusicBrainz metadata is not silently treated as producer credit unless the source explicitly identifies that relationship.
-
-## Running the Google Books MCP server
-
-Google Books is public and can work without a key for this POC. An optional `GOOGLE_BOOKS_API_KEY` or `GOOGLE_API_KEY` can be provided for quota management.
+From the repository root:
 
 ```powershell
-.\.venv\Scripts\python.exe -m mcp_servers.books_mcp
+cd backend
+python -m uvicorn main:app --reload
 ```
 
-The server exposes `search_books` and `get_book`. Ask the app questions such as `Tell me about book "The Hobbit"`; only Google Books MCP is called for book queries.
+The API runs at `http://localhost:8000`.
 
-## Running the Streamlit app
+Health check:
 
-With `.env` populated and the virtual environment active, run:
+```text
+GET http://localhost:8000/api/health
+```
+
+### Start the React frontend
+
+In a second terminal:
 
 ```powershell
-.\.venv\Scripts\streamlit.exe run app.py
+cd frontend
+npm install
+npm run dev
 ```
 
-The app starts the MusicBrainz and TMDB MCP servers through the Python MCP SDK over stdio, sends the retrieved evidence to LangChain's Gemini model, and displays the grounded answer and warnings. Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` and optionally `GEMINI_MODEL` in `.env`.
+The frontend uses `http://localhost:8000` as the default API URL. To use a different backend URL, create `frontend/.env.local` with:
 
-## Current status
+```text
+VITE_API_URL=http://localhost:8000
+```
 
-The active POC path uses MusicBrainz, TMDB, and Google Books MCP servers plus LangChain Gemini. Graph, Spotify, and unrelated entity-ingestion code have been removed from the active project. The private `.env` may still contain old ignored variables, but the runtime no longer reads or uses them.
+Do not put API keys or session tokens in frontend environment files.
 
-Remaining phases: none for the POC scope.
+### Start the Streamlit interface
 
-## Future example queries
+The Streamlit interface is available at `backend/streamlit/app.py`:
 
-- Tell me about movie "Bahubali I".
-- Find recent information about a film and its credits.
-- Search MusicBrainz for an artist or recording.
+```powershell
+.\.venv\Scripts\streamlit.exe run backend/streamlit/app.py
+```
+
+It uses the same agent, memory, configuration, and MCP servers as the FastAPI application.
+
+## MCP Servers
+
+The MCP servers are normally started automatically by the MCP client. They can also be run individually for development:
+
+```powershell
+python -m backend.mcp_servers.tmdb_mcp
+python -m backend.mcp_servers.musicbrainz_mcp
+python -m backend.mcp_servers.books_mcp
+```
+
+These processes communicate over MCP stdio and are intended to be started by the application rather than used as HTTP services.
+
+## Testing
+
+Run the complete Python test suite from the repository root:
+
+```powershell
+python -m pytest -q
+```
+
+The tests cover the agent, LLM parsing, chat history, MCP clients, MCP tool discovery, and individual MCP integrations.
+
+## API Overview
+
+The FastAPI backend provides:
+
+- `GET /api/health` - health check
+- `POST /api/auth/signup` - create an account
+- `POST /api/auth/login` - start a session
+- `POST /api/auth/logout` - end a session
+- `GET /api/auth/me` - get the current user
+- `POST /api/chat` - send a chat message
+- `GET /api/chat/history` - retrieve chat history
+- `DELETE /api/chat/history` - clear chat history
 
 ## Limitations
 
-- This is a POC, not a production architecture.
-- Data freshness and API rate limits depend on the upstream services.
-- LLM answers depend on the configured model and available API credentials.
-- The project does not use LangGraph or evaluation frameworks at this stage.
+- Chat history is process-local and is cleared when the backend restarts.
+- Data freshness and rate limits depend on the upstream services.
+- Gemini responses depend on the configured model, credentials, and available MCP evidence.
+- The project is intended as a proof of concept rather than a production deployment.

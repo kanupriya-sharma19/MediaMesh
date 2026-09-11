@@ -1,6 +1,6 @@
 from typing import Any
 
-from mcp_servers.books_mcp import GoogleBooksClient, get_book
+from backend.mcp_servers.books_mcp import GoogleBooksClient, get_book
 
 
 class FakeResponse:

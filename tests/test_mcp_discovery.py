@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from agent.mcp_client import StdioMCPClient
+from backend.agent.mcp_client import StdioMCPClient
 
 
 def test_async_tool_discovery_maps_mcp_tool_fields(monkeypatch: Any) -> None:
@@ -37,8 +37,10 @@ def test_async_tool_discovery_maps_mcp_tool_fields(monkeypatch: Any) -> None:
         async def __aexit__(self, *args: Any) -> None:
             return None
 
-    monkeypatch.setattr("agent.mcp_client.ClientSession", FakeSession)
-    monkeypatch.setattr("agent.mcp_client.stdio_client", lambda parameters: FakeStdio())
+    monkeypatch.setattr("backend.agent.mcp_client.ClientSession", FakeSession)
+    monkeypatch.setattr(
+        "backend.agent.mcp_client.stdio_client", lambda parameters: FakeStdio()
+    )
 
     tools = asyncio.run(client._list_tools("module", "GoogleBooks"))
 
