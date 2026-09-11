@@ -22,8 +22,16 @@ export const api = {
   signup: (data) =>
     request("/api/auth/signup", { method: "POST", body: JSON.stringify(data) }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
-  history: () => request("/api/chat/history"),
-  clearHistory: () => request("/api/chat/history", { method: "DELETE" }),
-  chat: (message) =>
-    request("/api/chat", { method: "POST", body: JSON.stringify({ message }) }),
+  history: (sessionId = "default") =>
+    request(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`),
+  sessions: () => request("/api/chat/sessions"),
+  clearHistory: (sessionId = "default") =>
+    request(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    }),
+  chat: (message, sessionId = "default") =>
+    request("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, session_id: sessionId }),
+    }),
 };

@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
+    session_id: str = Field(default="default", min_length=1, max_length=128)
 
 
 class MessageResponse(BaseModel):
@@ -42,3 +43,14 @@ class ChatResponse(BaseModel):
 
 class HistoryResponse(BaseModel):
     messages: list[MessageResponse]
+
+
+class SessionResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class SessionsResponse(BaseModel):
+    sessions: list[SessionResponse]

@@ -24,18 +24,25 @@ class ChatService:
             self._agent = LLMAgent(StdioMCPClient())
         return self._agent
 
-    def history(self, user_id: str) -> list[dict[str, Any]]:
-        return [_serialize_message(message) for message in get_chat_history(user_id)]
+    def history(
+        self, user_id: str, session_id: str = "default"
+    ) -> list[dict[str, Any]]:
+        return [
+            _serialize_message(message)
+            for message in get_chat_history(user_id, session_id)
+        ]
 
-    def clear(self, user_id: str) -> None:
-        clear_chat_history(user_id)
+    def clear(self, user_id: str, session_id: str = "default") -> None:
+        clear_chat_history(user_id, session_id)
 
-    def ask(self, user_id: str, query: str) -> dict[str, Any]:
-        history = get_chat_history(user_id)
+    def ask(
+        self, user_id: str, query: str, session_id: str = "default"
+    ) -> dict[str, Any]:
+        history = get_chat_history(user_id, session_id)
         history.append(HumanMessage(content=query))
         result = self.agent.run(query, chat_history=history)
         history.append(AIMessage(content=result.get("answer", "")))
-        save_chat_history(user_id, history)
+        save_chat_history(user_id, history, session_id)
         return result
 
 
