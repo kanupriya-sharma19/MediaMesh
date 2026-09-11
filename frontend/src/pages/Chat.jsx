@@ -63,20 +63,25 @@ export default function Chat() {
   const clear = async () => {
     setError("");
     try {
-      await api.clearHistory(sessionId);
+      await api.clearHistory();
       setMessages([]);
       setSessions([]);
     } catch (requestError) {
       setError(requestError.message);
     }
   };
-  const newSession = () => {
-    const nextSessionId = createSessionId();
+  const newSession = async () => {
     setError("");
     setBusy(false);
-    setMessages([]);
-    sessionIdRef.current = nextSessionId;
-    setSessionId(nextSessionId);
+    try {
+      const nextSession = await api.createSession();
+      setMessages([]);
+      sessionIdRef.current = nextSession.id;
+      setSessionId(nextSession.id);
+      setSessions((current) => [nextSession, ...current]);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
   };
   return (
     <div className="chat-layout">

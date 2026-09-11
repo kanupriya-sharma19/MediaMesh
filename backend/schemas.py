@@ -32,6 +32,13 @@ class ChatRequest(BaseModel):
     session_id: str = Field(default="default", min_length=1, max_length=128)
 
 
+class SessionResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
 class MessageResponse(BaseModel):
     role: str
     content: Any
@@ -43,13 +50,6 @@ class ChatResponse(BaseModel):
 
 class HistoryResponse(BaseModel):
     messages: list[MessageResponse]
-
-
-class SessionResponse(BaseModel):
-    id: str
-    title: str
-    created_at: str
-    updated_at: str
 
 
 class SessionsResponse(BaseModel):

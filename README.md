@@ -12,7 +12,7 @@ The interface lets users ask one question across music, movies, and books to dis
 - Search MusicBrainz for artists, recordings, releases, and relationships.
 - Search Google Books for books and bibliographic metadata.
 - Generate grounded answers with LangChain and Google Gemini.
-- Store chat history in a process-local in-memory store.
+- Store user-scoped conversations and messages in the persistent SQLite database.
 - Authenticate users through the FastAPI backend with HTTP-only session cookies.
 - Use the React application or the included Streamlit interface.
 
@@ -104,7 +104,7 @@ GOOGLE_BOOKS_API_KEY=optional_google_books_key
 MEDIAMESH_DB_PATH=optional_sqlite_path
 ```
 
-`GOOGLE_API_KEY` or `GEMINI_API_KEY` is used for Gemini. `MEDIAMESH_DB_PATH` is optional; by default, authentication data is stored in `backend/data/mm.db`.
+`GOOGLE_API_KEY` or `GEMINI_API_KEY` is used for Gemini. `MEDIAMESH_DB_PATH` is optional; by default, authentication data, conversations, and messages are stored in `backend/data/mm.db`.
 
 ## Run The Application
 
@@ -186,11 +186,13 @@ The FastAPI backend provides:
 - `GET /api/auth/me` - get the current user
 - `POST /api/chat` - send a chat message
 - `GET /api/chat/history` - retrieve chat history
+- `POST /api/chat/sessions` - create an empty conversation
+- `GET /api/chat/sessions` - list the authenticated user's conversations
+- `GET /api/chat/sessions/{session_id}` - retrieve one conversation's messages
 - `DELETE /api/chat/history` - clear chat history
 
 ## Limitations
 
-- Chat history is process-local and is cleared when the backend restarts.
 - Data freshness and rate limits depend on the upstream services.
 - Gemini responses depend on the configured model, credentials, and available MCP evidence.
 - The project is intended as a proof of concept rather than a production deployment.

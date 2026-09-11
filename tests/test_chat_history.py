@@ -1,5 +1,6 @@
 from langchain_core.messages import AIMessage, HumanMessage
 
+from backend.memory import chat_history
 from backend.memory.chat_history import (
     clear_chat_history,
     get_chat_history,
@@ -76,6 +77,39 @@ def test_clear_history_removes_all_user_sessions() -> None:
     assert get_chat_sessions(user_id) == []
     assert get_chat_history(user_id, "first") == []
     assert get_chat_history(user_id, "second") == []
+
+
+def test_clear_history_deletes_sql_rows_without_affecting_other_users() -> None:
+    user_id = "history-user-sql-clear"
+    other_user_id = "history-user-sql-clear-other"
+    clear_chat_history(user_id)
+    clear_chat_history(other_user_id)
+    save_chat_history(user_id, [HumanMessage(content="Delete this")], "delete-me")
+    save_chat_history(other_user_id, [HumanMessage(content="Keep this")], "keep-me")
+
+    clear_chat_history(user_id)
+
+    with chat_history._connect() as connection:
+        deleted_conversations = connection.execute(
+            "SELECT COUNT(*) FROM conversations WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()[0]
+        deleted_messages = connection.execute(
+            "SELECT COUNT(*) FROM messages WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()[0]
+        remaining_other_user_rows = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM conversations
+            WHERE user_id = ? AND id = ?
+            """,
+            (other_user_id, "keep-me"),
+        ).fetchone()[0]
+
+    assert deleted_conversations == 0
+    assert deleted_messages == 0
+    assert remaining_other_user_rows == 1
 
 
 def test_same_user_history_is_available_across_calls() -> None:

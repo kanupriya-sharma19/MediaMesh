@@ -25,10 +25,8 @@ export const api = {
   history: (sessionId = "default") =>
     request(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`),
   sessions: () => request("/api/chat/sessions"),
-  clearHistory: (sessionId = "default") =>
-    request(`/api/chat/history?session_id=${encodeURIComponent(sessionId)}`, {
-      method: "DELETE",
-    }),
+  createSession: () => request("/api/chat/sessions", { method: "POST" }),
+  clearHistory: () => request("/api/chat/history", { method: "DELETE" }),
   chat: (message, sessionId = "default") =>
     request("/api/chat", {
       method: "POST",

@@ -1,6 +1,7 @@
 from typing import Any
 
 from backend.agent.llm import GeminiAnswerModel, _parse_action
+from langchain_core.messages import SystemMessage
 
 
 def test_gemini_next_action_accepts_dynamic_tools(monkeypatch: Any) -> None:
@@ -44,3 +45,36 @@ def test_parse_action_accepts_fenced_json() -> None:
         "type": "final",
         "answer": "Done",
     }
+
+
+def test_gemini_prompt_contains_long_term_memory(monkeypatch: Any) -> None:
+    class FakeChatModel:
+        def __init__(self, **kwargs: Any) -> None:
+            self.prompt = ""
+
+        def invoke(self, prompt: str) -> Any:
+            self.prompt = prompt
+            return type(
+                "Response",
+                (),
+                {"content": '{"type":"final","answer":"Kanupriya"}'},
+            )()
+
+    fake_model = FakeChatModel()
+    monkeypatch.setattr(
+        "backend.agent.llm.ChatGoogleGenerativeAI", lambda **kwargs: fake_model
+    )
+    model = GeminiAnswerModel("test-key", "gemini-test")
+
+    model.next_action(
+        "What is my name?",
+        [],
+        [],
+        chat_history=[
+            SystemMessage(
+                content="Relevant long-term user memories:\n- User's name is Kanupriya"
+            )
+        ],
+    )
+
+    assert "User's name is Kanupriya" in fake_model.prompt
