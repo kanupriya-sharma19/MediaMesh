@@ -15,11 +15,19 @@ const prompts = [
   "Discover unexpected media connections",
 ];
 
+const sidebarStorageKey = "mediamess-sidebar-collapsed";
+
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem(sidebarStorageKey);
+    return saved === null
+      ? window.matchMedia("(max-width: 800px)").matches
+      : saved === "true";
+  });
   const [sessionId, setSessionId] = useState(createSessionId);
   const sessionIdRef = useRef(sessionId);
 
@@ -66,8 +74,10 @@ export default function Chat() {
       await api.clearHistory();
       setMessages([]);
       setSessions([]);
+      return true;
     } catch (requestError) {
       setError(requestError.message);
+      return false;
     }
   };
   const newSession = async () => {
@@ -83,13 +93,22 @@ export default function Chat() {
       setError(requestError.message);
     }
   };
+  const toggleSidebar = () => {
+    setSidebarCollapsed((collapsed) => {
+      const nextCollapsed = !collapsed;
+      localStorage.setItem(sidebarStorageKey, String(nextCollapsed));
+      return nextCollapsed;
+    });
+  };
   return (
-    <div className="chat-layout">
+    <div className={`chat-layout${sidebarCollapsed ? " sidebar-is-collapsed" : ""}`}>
       <Sidebar
         sessions={sessions}
         onClear={clear}
         onNewSession={newSession}
         onSelectSession={selectSession}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
       />
       <main className="chat-main">
         <div className="chat-hero">

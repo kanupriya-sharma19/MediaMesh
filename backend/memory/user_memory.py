@@ -1,63 +1,39 @@
-"""SQLite-backed, user-scoped long-term preference memory."""
+"""PostgreSQL-backed, user-scoped long-term preference memory."""
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
-import logging
+from datetime import UTC, datetime
 
-from backend.memory.chat_history import _connect, _now
+from sqlalchemy import select
 
+from backend.database import UserMemory, session_scope
 
 logger = logging.getLogger(__name__)
 
 _NAME_PATTERNS = (
     re.compile(
         r"\bmy\s+name\s+is\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})\b[.!?]?\s*$",
-        re.I,
+        re.IGNORECASE,
     ),
     re.compile(
         r"\bI(?:\s+am|'m)\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})\b[.!?]?\s*$",
-        re.I,
+        re.IGNORECASE,
     ),
 )
 _PREFERENCE_PATTERNS = (
     re.compile(
-        r"\bI\s+(?:really\s+)?(?:like|love|enjoy|prefer)\s+(.+?)[.!?]?\s*$", re.I
+        r"\bI\s+(?:really\s+)?(?:like|love|enjoy|prefer)\s+(.+?)[.!?]?\s*$",
+        re.IGNORECASE,
     ),
-    re.compile(r"\bmy\s+favorite\s+([^.!?]+?)\s+is\s+(.+?)[.!?]?\s*$", re.I),
-    re.compile(r"\bI\s+(?:don't|do not|dislike|hate)\s+(.+?)[.!?]?\s*$", re.I),
+    re.compile(r"\bmy\s+favorite\s+([^.!?]+?)\s+is\s+(.+?)[.!?]?\s*$", re.IGNORECASE),
+    re.compile(r"\bI\s+(?:don't|do not|dislike|hate)\s+(.+?)[.!?]?\s*$", re.IGNORECASE),
 )
 
 
-def _initialize() -> None:
-    with _connect() as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_memories (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                memory TEXT NOT NULL,
-                category TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(user_id, memory)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE INDEX IF NOT EXISTS user_memories_user_updated_idx
-            ON user_memories(user_id, updated_at DESC)
-            """
-        )
-
-
-_initialize()
-
-
 def extract_memory(message: str) -> tuple[str, str] | None:
-    """Extract only explicit, stable identity or preference statements."""
     normalized = " ".join(message.split())
     for pattern in _NAME_PATTERNS:
         match = pattern.search(normalized)
@@ -87,50 +63,53 @@ def extract_memory(message: str) -> tuple[str, str] | None:
 
 
 def save_memory(user_id: str, memory: str, category: str = "preference") -> None:
-    """Persist or refresh one memory for the authenticated user."""
-    now = _now()
-    with _connect() as connection:
-        connection.execute(
-            """
-            INSERT INTO user_memories (id, user_id, memory, category, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, memory) DO UPDATE SET
-                updated_at = excluded.updated_at,
-                category = excluded.category
-            """,
-            (str(uuid.uuid4()), user_id, memory.strip(), category, now, now),
+    now = datetime.now(UTC)
+    with session_scope() as session:
+        existing = session.scalar(
+            select(UserMemory).where(
+                UserMemory.user_id == user_id, UserMemory.memory == memory.strip()
+            )
         )
+        if existing:
+            existing.updated_at = now
+            existing.category = category
+        else:
+            session.add(
+                UserMemory(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    memory=memory.strip(),
+                    category=category,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
     logger.info(
         "[MEMORY SAVED] user_id=%s category=%s memory=%s", user_id, category, memory
     )
 
 
 def get_user_memories(user_id: str, limit: int = 12) -> list[dict[str, str]]:
-    with _connect() as connection:
-        rows = connection.execute(
-            """
-            SELECT id, user_id, memory, category, created_at, updated_at
-            FROM user_memories
-            WHERE user_id = ?
-            ORDER BY updated_at DESC
-            LIMIT ?
-            """,
-            (user_id, limit),
-        ).fetchall()
-    return [dict(row) for row in rows]
+    with session_scope() as session:
+        rows = session.scalars(
+            select(UserMemory)
+            .where(UserMemory.user_id == user_id)
+            .order_by(UserMemory.updated_at.desc())
+            .limit(limit)
+        ).all()
+    return [_memory_dict(row) for row in rows]
 
 
 def get_relevant_memories(
     user_id: str, query: str, limit: int = 8
 ) -> list[dict[str, str]]:
-    """Prefer memories matching the query, with preferences for recommendation asks."""
     memories = get_user_memories(user_id, limit=100)
     terms = {
         term.lower() for term in re.findall(r"[a-zA-Z0-9]+", query) if len(term) > 2
     }
     scored = []
     recommendation = re.search(
-        r"\b(recommend|suggest|like|similar|favorite)\b", query, re.I
+        r"\b(recommend|suggest|like|similar|favorite)\b", query, re.IGNORECASE
     )
     for position, memory in enumerate(memories):
         memory_terms = set(re.findall(r"[a-zA-Z0-9]+", memory["memory"].lower()))
@@ -147,3 +126,14 @@ def get_relevant_memories(
         [memory["memory"] for memory in relevant],
     )
     return relevant
+
+
+def _memory_dict(row: UserMemory) -> dict[str, str]:
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "memory": row.memory,
+        "category": row.category,
+        "created_at": row.created_at.isoformat(),
+        "updated_at": row.updated_at.isoformat(),
+    }

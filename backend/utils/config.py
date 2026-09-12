@@ -15,6 +15,7 @@ class Settings:
     google_books_api_key: str | None = None
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
+    database_url: str = ""
 
 
 def load_settings() -> Settings:
@@ -26,4 +27,5 @@ def load_settings() -> Settings:
         google_books_api_key=os.getenv("GOOGLE_BOOKS_API_KEY"),
         gemini_api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
         gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        database_url=os.getenv("DATABASE_URL", ""),
     )

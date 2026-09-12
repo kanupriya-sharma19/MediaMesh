@@ -9,8 +9,10 @@ export default function Sidebar({
   onClear,
   onNewSession,
   onSelectSession,
+  collapsed,
+  onToggleCollapsed,
 }) {
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const profileRef = useRef(null);
   const { user, logout } = useAuth();
@@ -20,7 +22,7 @@ export default function Sidebar({
   useEffect(() => {
     const closeProfile = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setProfileOpen(false);
+      setIsProfileOpen(false);
       }
     };
     document.addEventListener("mousedown", closeProfile);
@@ -32,20 +34,41 @@ export default function Sidebar({
   );
 
   const handleLogout = async () => {
+    setIsProfileOpen(false);
     await logout();
     navigate("/", { replace: true });
   };
 
+  const handleClearHistory = async () => {
+    const cleared = await onClear();
+    if (cleared !== false) {
+      setIsProfileOpen(false);
+    }
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? " sidebar-collapsed" : ""}`}>
       <div className="sidebar-header">
-        <div className="brand">MEDIAMESH</div>
+        <div className="sidebar-topline">
+          <button
+            className="sidebar-toggle"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <span aria-hidden="true">{collapsed ? "»" : "«"}</span>
+          </button>
+          <div className="brand">MEDIAMESH</div>
+        </div>
         <div className="sidebar-caption">Cross-media intelligence</div>
         <button className="new-session-button" onClick={onNewSession}>
-          <span aria-hidden="true">+</span> New session
+          <span className="sidebar-icon" aria-hidden="true">
+            +
+          </span>
+          <span className="sidebar-item-label">New session</span>
         </button>
         <label className="chat-search">
-          <span aria-hidden="true">⌕</span>
+          <span className="sidebar-icon" aria-hidden="true">⌕</span>
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -57,18 +80,22 @@ export default function Sidebar({
       <div className="sidebar-content">
         <div className="sidebar-label">Explore</div>
         <div className="status-line">
-          <span>⌂</span> Discover
+          <span className="sidebar-icon">⌂</span>
+          <span className="sidebar-item-label">Discover</span>
         </div>
         <div className="status-line active">
-          <span>✦</span> Chat
+          <span className="sidebar-icon">✦</span>
+          <span className="sidebar-item-label">Chat</span>
         </div>
         <div className="status-line">
-          <span>◷</span> History
+          <span className="sidebar-icon">◷</span>
+          <span className="sidebar-item-label">History</span>
         </div>
         <div className="sidebar-label">Media sources</div>
         {sources.map((source) => (
           <div className="status-line" key={source}>
-            <span className="source-dot">●</span> {source}
+            <span className="sidebar-icon source-dot">●</span>
+            <span className="sidebar-item-label">{source}</span>
           </div>
         ))}
         <div className="sidebar-label">Recent chats</div>
@@ -92,14 +119,17 @@ export default function Sidebar({
         )}
       </div>
       <div className="sidebar-account" ref={profileRef}>
-        {profileOpen && (
+        {isProfileOpen && (
           <div className="profile-menu">
             <div className="profile-name">{userLabel}</div>
             {user?.name && user?.email && (
               <div className="profile-email">{user.email}</div>
             )}
             <div className="profile-actions">
-              <button className="text-button profile-logout" onClick={onClear}>
+              <button
+                className="text-button profile-logout"
+                onClick={handleClearHistory}
+              >
                 Clear history
               </button>
 
@@ -114,10 +144,13 @@ export default function Sidebar({
         )}
         <button
           className="outline-button profile-button"
-          onClick={() => setProfileOpen((open) => !open)}
-          aria-expanded={profileOpen}
+          onClick={() => setIsProfileOpen((open) => !open)}
+          aria-expanded={isProfileOpen}
         >
-          {userLabel}
+          <span className="profile-avatar" aria-hidden="true">
+            {userLabel.charAt(0).toUpperCase()}
+          </span>
+          <span className="sidebar-item-label">{userLabel}</span>
         </button>
         <div className="private-note">Private session</div>
       </div>

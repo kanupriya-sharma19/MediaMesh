@@ -1,4 +1,4 @@
-"""SQLite-backed users and server-side browser sessions."""
+"""PostgreSQL-backed users and server-side browser sessions."""
 
 from __future__ import annotations
 
@@ -7,10 +7,12 @@ import hashlib
 import hmac
 import os
 import secrets
-import sqlite3
 import uuid
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+
+from backend.database import AuthSession, User, session_scope
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 
 class AuthError(ValueError):
@@ -18,97 +20,71 @@ class AuthError(ValueError):
 
 
 class AuthService:
-    def __init__(self, database_path: Path | None = None) -> None:
-        default_path = Path(__file__).resolve().parents[1] / "data" / "mm.db"
-        self.database_path = database_path or Path(
-            os.getenv("MEDIAMESH_DB_PATH", str(default_path))
-        )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
-
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database_path)
-        connection.row_factory = sqlite3.Row
-        return connection
-
-    def _initialize(self) -> None:
-        with self._connect() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    email TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token_hash TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    expires_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
-                """
-            )
-
     def create_user(self, name: str, email: str, password: str) -> dict[str, str]:
         user_id = str(uuid.uuid4())
         normalized_email = email.strip().lower()
-        with self._connect() as connection:
-            try:
-                connection.execute(
-                    "INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)",
-                    (user_id, name.strip(), normalized_email, _hash_password(password)),
+        with session_scope() as session:
+            session.add(
+                User(
+                    id=user_id,
+                    name=name.strip(),
+                    email=normalized_email,
+                    password_hash=_hash_password(password),
                 )
-            except sqlite3.IntegrityError as exc:
+            )
+            try:
+                session.flush()
+            except IntegrityError as exc:
                 raise AuthError("An account with that email already exists.") from exc
         return {"id": user_id, "name": name.strip(), "email": normalized_email}
 
     def authenticate(self, email: str, password: str) -> dict[str, str] | None:
-        with self._connect() as connection:
-            user = connection.execute(
-                "SELECT id, name, email, password_hash FROM users WHERE email = ?",
-                (email.strip().lower(),),
-            ).fetchone()
-        if user is None or not _verify_password(password, user["password_hash"]):
-            return None
-        return {"id": user["id"], "name": user["name"], "email": user["email"]}
+        with session_scope() as session:
+            user = session.scalar(
+                select(User).where(User.email == email.strip().lower())
+            )
+            if user is None or not _verify_password(password, user.password_hash):
+                return None
+            return {"id": user.id, "name": user.name, "email": user.email}
 
     def create_session(self, user_id: str) -> str:
         token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(UTC) + timedelta(days=7)
-        with self._connect() as connection:
-            connection.execute(
-                "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
-                (_token_hash(token), user_id, expires_at.isoformat()),
+        with session_scope() as session:
+            session.add(
+                AuthSession(
+                    token_hash=_token_hash(token),
+                    user_id=user_id,
+                    expires_at=datetime.now(UTC) + timedelta(days=7),
+                )
             )
         return token
 
     def get_user_by_session(self, token: str | None) -> dict[str, str] | None:
         if not token:
             return None
-        with self._connect() as connection:
-            row = connection.execute(
-                """
-                SELECT users.id, users.name, users.email, sessions.expires_at
-                FROM sessions JOIN users ON users.id = sessions.user_id
-                WHERE sessions.token_hash = ?
-                """,
-                (_token_hash(token),),
-            ).fetchone()
-        if row is None:
-            return None
-        expires_at = datetime.fromisoformat(row["expires_at"])
-        if expires_at <= datetime.now(UTC):
-            self.delete_session(token)
-            return None
-        return {"id": row["id"], "name": row["name"], "email": row["email"]}
+        with session_scope() as session:
+            auth_session = session.scalar(
+                select(AuthSession).where(AuthSession.token_hash == _token_hash(token))
+            )
+            if auth_session is None:
+                return None
+            if auth_session.expires_at <= datetime.now(UTC):
+                session.delete(auth_session)
+                return None
+            user = session.get(User, auth_session.user_id)
+            return (
+                {"id": user.id, "name": user.name, "email": user.email}
+                if user
+                else None
+            )
 
     def delete_session(self, token: str | None) -> None:
-        if token:
-            with self._connect() as connection:
-                connection.execute(
-                    "DELETE FROM sessions WHERE token_hash = ?", (_token_hash(token),)
-                )
+        if not token:
+            return
+        with session_scope() as session:
+            auth_session = session.get(AuthSession, _token_hash(token))
+            if auth_session:
+                session.delete(auth_session)
 
 
 def _hash_password(password: str) -> str:

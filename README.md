@@ -12,7 +12,7 @@ The interface lets users ask one question across music, movies, and books to dis
 - Search MusicBrainz for artists, recordings, releases, and relationships.
 - Search Google Books for books and bibliographic metadata.
 - Generate grounded answers with LangChain and Google Gemini.
-- Store user-scoped conversations and messages in the persistent SQLite database.
+- Store user-scoped conversations, messages, authentication, and long-term memories in Supabase PostgreSQL.
 - Authenticate users through the FastAPI backend with HTTP-only session cookies.
 - Use the React application or the included Streamlit interface.
 
@@ -101,10 +101,28 @@ GOOGLE_API_KEY=your_gemini_key
 GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GOOGLE_BOOKS_API_KEY=optional_google_books_key
-MEDIAMESH_DB_PATH=optional_sqlite_path
+DATABASE_URL=postgresql+psycopg://postgres.<project-ref>:<password>@<supabase-host>:5432/postgres
 ```
 
-`GOOGLE_API_KEY` or `GEMINI_API_KEY` is used for Gemini. `MEDIAMESH_DB_PATH` is optional; by default, authentication data, conversations, and messages are stored in `backend/data/mm.db`.
+`GOOGLE_API_KEY` or `GEMINI_API_KEY` is used for Gemini. `DATABASE_URL` is server-side only and must use the `postgresql+psycopg://` scheme. Never put it in frontend environment files.
+
+## Supabase Database Setup
+
+1. Create a Supabase project and copy its PostgreSQL connection string.
+2. Set `DATABASE_URL` in the root `.env`; keep the password out of source control.
+3. Install backend dependencies, then create the schema:
+
+```powershell
+python -m pip install -r backend/requirements.txt
+alembic upgrade head
+```
+
+To preserve existing local data, run the importer after the schema migration. It reads `backend/data/mm.db` without deleting it:
+
+```powershell
+$env:MEDIAMESH_DB_PATH="backend/data/mm.db"
+python scripts/migrate_sqlite_to_postgres.py
+```
 
 ## Run The Application
 
