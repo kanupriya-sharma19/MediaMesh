@@ -153,7 +153,7 @@ export default function Chat() {
         {error && <div className="form-error chat-error">{error}</div>}
         {busy && (
           <div className="thinking">
-            <span /> MediaMesh is exploring the media graph...
+            <span /> ✦ MediaMesh is exploring the media graph...
           </div>
         )}
         <ChatInput onSend={send} disabled={busy} />

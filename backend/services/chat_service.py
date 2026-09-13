@@ -5,20 +5,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from backend.agent.llm_agent import LLMAgent
+from backend.agent.llm_agent import AgentError, LLMAgent
 from backend.agent.mcp_client import StdioMCPClient
+from backend.guardrails import GuardrailViolation, guard_user_input
 from backend.memory.chat_history import (
     clear_chat_history,
     create_chat_session,
     get_chat_history,
-    get_conversation_summary,
     get_chat_sessions,
+    get_conversation_summary,
     save_conversation_summary,
     save_chat_history,
     summarize_messages,
 )
 from backend.memory.user_memory import (
-    extract_memory,
+    extract_memories,
     get_relevant_memories,
     save_memory,
 )
@@ -60,10 +61,16 @@ class ChatService:
     def ask(
         self, user_id: str, query: str, session_id: str = "default"
     ) -> dict[str, Any]:
+        try:
+            query = guard_user_input(query)
+        except GuardrailViolation as exc:
+            raise AgentError(str(exc)) from exc
         history = get_chat_history(user_id, session_id)
-        extracted = extract_memory(query)
-        if extracted:
-            save_memory(user_id, *extracted)
+        logger.info("Starting memory extraction for user %s", user_id)
+        extracted = extract_memories(query)
+        logger.info("Extracted memories: %s", extracted)
+        for memory in extracted:
+            save_memory(user_id, *memory)
         memories = get_relevant_memories(user_id, query)
         logger.info(
             "[MEMORY RETRIEVED] user_id=%s session_id=%s count=%s",

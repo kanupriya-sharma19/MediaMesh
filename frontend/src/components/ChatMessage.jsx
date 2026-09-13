@@ -1,3 +1,6 @@
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+
 function MediaCard({ kind, item }) {
   const title = item.title || item.name || item.artist_name || "Untitled";
   const image = item.poster_url || item.thumbnail || item.cover_url;
@@ -67,7 +70,11 @@ export default function ChatMessage({ message }) {
   return (
     <div className="message assistant">
       <div className="message-head">✦ MediaMesh</div>
-      <div className="answer">{result.answer || "No answer returned."}</div>
+      <div className="answer assistant-answer">
+        <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+          {result.answer || "No answer returned."}
+        </ReactMarkdown>
+      </div>
       {result.warnings?.map((warning) => (
         <div className="warning" key={warning}>
           {warning}

@@ -8,6 +8,12 @@ from collections.abc import Sequence
 from typing import Any, Protocol
 
 from backend.agent.llm import AnswerModel, GeminiAnswerModel, LLMError
+from backend.guardrails import (
+    GuardrailViolation,
+    guard_user_input,
+    validate_final_output,
+    validate_tool_call,
+)
 from langchain_core.messages import BaseMessage
 from backend.utils.config import load_settings
 
@@ -49,9 +55,13 @@ class LLMAgent:
         chat_history: Sequence[BaseMessage] | None = None,
     ) -> dict[str, Any]:
         """Run the bounded dynamic MCP agent loop."""
-        if not query.strip():
+        try:
+            safe_query = guard_user_input(query)
+        except GuardrailViolation as exc:
+            raise AgentError(str(exc)) from exc
+        if not safe_query.strip():
             raise AgentError("Please enter a media relationship query.")
-        logger.info("User query received: %s", query)
+        logger.info("User query received: %s", safe_query)
         try:
             tools = self.mcp_client.list_all_tools()
         except Exception as exc:
@@ -71,14 +81,14 @@ class LLMAgent:
             try:
                 if chat_history:
                     action = self.answer_model.next_action(
-                        query=query,
+                        query=safe_query,
                         tools=tools,
                         evidence=evidence,
                         chat_history=chat_history,
                     )
                 else:
                     action = self.answer_model.next_action(
-                        query=query, tools=tools, evidence=evidence
+                        query=safe_query, tools=tools, evidence=evidence
                     )
             except LLMError as exc:
                 raise AgentError(str(exc)) from exc
@@ -88,6 +98,10 @@ class LLMAgent:
                 answer = action.get("answer")
                 if not isinstance(answer, str):
                     raise AgentError("Agent returned an invalid final answer.")
+                try:
+                    answer = validate_final_output(answer, evidence)
+                except GuardrailViolation as exc:
+                    raise AgentError(str(exc)) from exc
                 return {"answer": answer, "warnings": warnings, "sources": evidence}
             if action_type != "tool_call":
                 raise AgentError(f"Agent returned unknown action type: {action_type}")
@@ -101,6 +115,12 @@ class LLMAgent:
                 raise AgentError("Agent returned invalid tool.")
             if not isinstance(arguments, dict):
                 raise AgentError("Agent returned invalid tool arguments.")
+            try:
+                arguments = validate_tool_call(server, tool, arguments)
+            except GuardrailViolation as exc:
+                raise AgentError(
+                    f"Tool arguments failed safety validation: {exc}"
+                ) from exc
             if (server, tool) not in known_tools:
                 raise AgentError(f"Agent selected undiscovered tool: {server}.{tool}")
 

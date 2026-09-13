@@ -16,6 +16,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  landingMedia: () => request("/api/landing/media"),
   me: () => request("/api/auth/me"),
   login: (data) =>
     request("/api/auth/login", { method: "POST", body: JSON.stringify(data) }),

@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
+
+const ROW_COUNT = 8;
+
+function mixMedia(media) {
+  const items = [
+    ...(media.movies || []),
+    ...(media.music || []),
+    ...(media.books || []),
+  ];
+  return items.sort(() => Math.random() - 0.5);
+}
 
 export function AuthPage({ mode }) {
   const isSignup = mode === "signup";
@@ -35,9 +46,53 @@ export function AuthPage({ mode }) {
       setBusy(false);
     }
   };
+
+  const [media, setMedia] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .landingMedia()
+      .then((result) => {
+        if (active) setMedia(mixMedia(result));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const rows = Array.from({ length: ROW_COUNT }, (_, index) => {
+    const offset = index % Math.max(media.length, 1);
+    return media.length
+      ? [...media.slice(offset), ...media.slice(0, offset)]
+      : [];
+  });
+
   return (
     <div className="page auth-page">
-      <Navbar />
+      <div className="auth-media-background" aria-hidden="true">
+        {rows.map((row, rowIndex) => (
+          <div
+            className={`auth-media-marquee auth-media-marquee-${rowIndex + 1}`}
+            key={rowIndex}
+          >
+            <div className="auth-media-track">
+              {[...row, ...row].map((item, itemIndex) => (
+                <img
+                  key={`${item.type}-${item.title}-${itemIndex}`}
+                  src={item.image_url}
+                  alt=""
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.style.visibility = "hidden";
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
       <main className="auth-shell">
         <div className="kicker">
           {isSignup ? "Start discovering" : "Welcome back"}

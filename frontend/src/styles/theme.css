@@ -34,6 +34,196 @@ body {
 .page {
   min-height: 100vh;
 }
+.landing-page {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+.landing-page::before,
+.landing-page::after {
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+.landing-page::before {
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg) 0%,
+      transparent 18%,
+      rgba(8, 6, 13, 0.86) 50%,
+      transparent 82%,
+      var(--bg) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(8, 6, 13, 0.62),
+      rgba(8, 6, 13, 0.9) 42%,
+      rgba(8, 6, 13, 0.72)
+    );
+}
+.landing-page::after {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(8, 6, 13, 0.98) 0%,
+    rgba(16, 10, 25, 0.72) 35%,
+    transparent 72%
+  );
+}
+.auth-page::before,
+.auth-page::after {
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.auth-page::before {
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg) 0%,
+      transparent 18%,
+      rgba(8, 6, 13, 0.86) 50%,
+      transparent 82%,
+      var(--bg) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(8, 6, 13, 0.62),
+      rgba(8, 6, 13, 0.9) 42%,
+      rgba(8, 6, 13, 0.72)
+    );
+}
+
+.auth-page::after {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(8, 6, 13, 0.98) 0%,
+    rgba(16, 10, 25, 0.72) 35%,
+    transparent 72%
+  );
+}
+.auth-page {
+  isolation: isolate;
+  overflow-x: hidden;
+  position: relative;
+}
+.auth-shell {
+  position: relative;
+  z-index: 1;
+}
+.auth-media-background {
+  display: grid;
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  inset: 0;
+  overflow: hidden;
+  padding: 1rem 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -2;
+}
+.auth-media-marquee {
+  height: 100%;
+  min-height: 0;
+  opacity: 1;
+  overflow: hidden;
+  position: relative;
+  width: 200%;
+}
+.auth-media-track {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  width: max-content;
+  animation: media-drift-left 20s linear infinite;
+}
+.auth-media-marquee:nth-child(even) .auth-media-track {
+  animation-name: media-drift-right;
+}
+.auth-media-track img {
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  filter: saturate(0.55) blur(0.2px);
+  height: min(190px, calc(100% - 1rem));
+  margin-right: 0.7rem;
+  object-fit: cover;
+  width: auto;
+}
+.landing-media {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: -2;
+}
+.media-marquee {
+  height: 28vh;
+  min-height: 150px;
+  opacity: 1;
+  overflow: hidden;
+  position: absolute;
+  width: 120%;
+}
+.media-marquee:nth-child(1) {
+  top: 4%;
+}
+.media-marquee:nth-child(2) {
+  top: 28%;
+}
+.media-marquee:nth-child(3) {
+  top: 53%;
+}
+.media-marquee:nth-child(4) {
+  top: 76%;
+}
+.media-marquee-2,
+.media-marquee-4 {
+  opacity: 1;
+}
+.media-track {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  width: max-content;
+  animation: media-drift-left 68s linear infinite;
+}
+.media-marquee-2 .media-track,
+.media-marquee-4 .media-track {
+  animation-name: media-drift-right;
+}
+.media-track img {
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  filter: saturate(0.55) blur(0.2px);
+  height: 190px;
+  margin-right: 0.7rem;
+  object-fit: cover;
+  width: 127px;
+}
+@keyframes media-drift-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes media-drift-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.landing-main {
+  position: relative;
+  z-index: 1;
+}
 .topbar {
   height: 76px;
   display: flex;
@@ -184,7 +374,7 @@ body {
   display: flex;
   gap: 1.5rem;
   color: #7f718f;
-  font-size: 0.78rem;
+  font-size: 1rem;
   margin-top: 7rem;
   flex-wrap: wrap;
 }
@@ -574,6 +764,81 @@ body {
   line-height: 1.7;
   white-space: pre-wrap;
 }
+.assistant-answer {
+  white-space: normal;
+}
+.assistant-answer > :first-child {
+  margin-top: 0;
+}
+.assistant-answer > :last-child {
+  margin-bottom: 0;
+}
+.assistant-answer p,
+.assistant-answer ul,
+.assistant-answer ol,
+.assistant-answer blockquote,
+.assistant-answer pre {
+  margin: 0.8rem 0;
+}
+.assistant-answer h1,
+.assistant-answer h2,
+.assistant-answer h3,
+.assistant-answer h4,
+.assistant-answer h5,
+.assistant-answer h6 {
+  color: #fff8ff;
+  font-family: "Space Grotesk";
+  line-height: 1.25;
+  margin: 1.1rem 0 0.55rem;
+}
+.assistant-answer h1 {
+  font-size: 1.45rem;
+}
+.assistant-answer h2 {
+  font-size: 1.25rem;
+}
+.assistant-answer h3 {
+  font-size: 1.1rem;
+}
+.assistant-answer ul,
+.assistant-answer ol {
+  padding-left: 1.4rem;
+}
+.assistant-answer li + li {
+  margin-top: 0.25rem;
+}
+.assistant-answer a {
+  color: var(--pink);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.assistant-answer blockquote {
+  border-left: 3px solid var(--pink);
+  color: #d8cbe0;
+  padding-left: 1rem;
+}
+.assistant-answer :not(pre) > code {
+  background: rgba(5, 3, 10, 0.6);
+  border: 1px solid rgba(233, 153, 255, 0.22);
+  border-radius: 4px;
+  color: #f8c8ff;
+  font-size: 0.9em;
+  padding: 0.12em 0.35em;
+}
+.assistant-answer pre {
+  background: rgba(5, 3, 10, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+  padding: 0.9rem 1rem;
+}
+.assistant-answer pre code {
+  color: #f4eafa;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  white-space: pre;
+}
 .warning {
   color: #fde68a;
   background: rgba(120, 80, 0, 0.18);
@@ -698,7 +963,32 @@ body {
   .landing-main {
     padding-top: 6rem;
   }
+  .auth-media-track img {
+    height: min(140px, calc(100% - 0.75rem));
+  }
+  .media-marquee {
+    height: 31vh;
+    min-height: 120px;
+  }
+  .media-marquee:nth-child(1) {
+    top: 8%;
+  }
+  .media-marquee:nth-child(2) {
+    top: 55%;
+  }
+  .media-marquee:nth-child(n + 3) {
+    display: none;
+  }
+  .media-track img {
+    height: 140px;
+    width: 94px;
+  }
   .landing-foot {
     margin-top: 5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-track {
+    animation-play-state: paused;
   }
 }

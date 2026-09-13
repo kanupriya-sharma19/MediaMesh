@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from backend.api.auth import router as auth_router  # noqa: E402
 from backend.api.chat import router as chat_router  # noqa: E402
+from backend.api.landing import router as landing_router  # noqa: E402
 from backend.services.dependencies import auth_service, chat_service  # noqa: E402
 
 
@@ -28,6 +29,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(chat_router)
+app.include_router(landing_router)
 
 
 @app.get("/api/health")

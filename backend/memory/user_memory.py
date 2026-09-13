@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 _NAME_PATTERNS = (
     re.compile(
-        r"\bmy\s+name\s+is\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})\b[.!?]?\s*$",
+        r"\bmy\s+name\s+is\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})(?=\s*[.!?,;]|\s*$)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bI(?:\s+am|'m)\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})\b[.!?]?\s*$",
+        r"\bI(?:\s+am|'m)\s+([A-Za-z][A-Za-z'-]{1,39}(?:\s+[A-Za-z][A-Za-z'-]{1,39}){0,2})(?=\s*[.!?,;]|\s*$)",
         re.IGNORECASE,
     ),
 )
@@ -34,7 +34,13 @@ _PREFERENCE_PATTERNS = (
 
 
 def extract_memory(message: str) -> tuple[str, str] | None:
+    memories = extract_memories(message)
+    return memories[0] if memories else None
+
+
+def extract_memories(message: str) -> list[tuple[str, str]]:
     normalized = " ".join(message.split())
+    memories: list[tuple[str, str]] = []
     for pattern in _NAME_PATTERNS:
         match = pattern.search(normalized)
         if match:
@@ -42,7 +48,8 @@ def extract_memory(message: str) -> tuple[str, str] | None:
             if name.lower().split()[0] not in {"a", "an", "the", "looking"}:
                 result = (f"User's name is {name}", "personal_information")
                 logger.info("[MEMORY EXTRACTION] category=%s memory=%s", *result)
-                return result
+                memories.append(result)
+                break
     for index, pattern in enumerate(_PREFERENCE_PATTERNS):
         match = pattern.search(normalized)
         if not match:
@@ -57,36 +64,55 @@ def extract_memory(message: str) -> tuple[str, str] | None:
             memory = f"User likes {match.group(1).strip()}"
         result = (memory[:500], "preference")
         logger.info("[MEMORY EXTRACTION] category=%s memory=%s", *result)
-        return result
-    logger.info("[MEMORY EXTRACTION] no stable memory found")
-    return None
+        memories.append(result)
+    if not memories:
+        logger.info("[MEMORY EXTRACTION] no stable memory found")
+    return memories
 
 
-def save_memory(user_id: str, memory: str, category: str = "preference") -> None:
+def save_memory(user_id: str, memory: str, category: str = "preference") -> str:
     now = datetime.now(UTC)
-    with session_scope() as session:
-        existing = session.scalar(
-            select(UserMemory).where(
-                UserMemory.user_id == user_id, UserMemory.memory == memory.strip()
-            )
-        )
-        if existing:
-            existing.updated_at = now
-            existing.category = category
-        else:
-            session.add(
-                UserMemory(
-                    id=str(uuid.uuid4()),
-                    user_id=user_id,
-                    memory=memory.strip(),
-                    category=category,
-                    created_at=now,
-                    updated_at=now,
+    normalized_memory = memory.strip()
+    logger.info(
+        "Persisting memory: user_id=%s category=%s memory=%s",
+        user_id,
+        category,
+        normalized_memory,
+    )
+    try:
+        with session_scope() as session:
+            existing = session.scalar(
+                select(UserMemory).where(
+                    UserMemory.user_id == user_id,
+                    UserMemory.memory == normalized_memory,
                 )
             )
-    logger.info(
-        "[MEMORY SAVED] user_id=%s category=%s memory=%s", user_id, category, memory
-    )
+            if existing:
+                existing.updated_at = now
+                existing.category = category
+                memory_id = existing.id
+            else:
+                memory_id = str(uuid.uuid4())
+                session.add(
+                    UserMemory(
+                        id=memory_id,
+                        user_id=user_id,
+                        memory=normalized_memory,
+                        category=category,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+    except Exception:
+        logger.exception(
+            "Failed to persist memory: user_id=%s category=%s memory=%s",
+            user_id,
+            category,
+            normalized_memory,
+        )
+        raise
+    logger.info("Memory persisted successfully: id=%s user_id=%s", memory_id, user_id)
+    return memory_id
 
 
 def get_user_memories(user_id: str, limit: int = 12) -> list[dict[str, str]]:
